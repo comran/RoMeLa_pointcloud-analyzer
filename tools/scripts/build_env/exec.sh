@@ -9,7 +9,7 @@ function interrupt_exec {
   if [ ! -z $PIDFILE ]
   then
     docker exec -t $IMAGE sh -c "PID=\$(cat $PIDFILE);echo \"KILLING \$PID\";kill -15 \$PID > /dev/null 2>&1 || true;rm $PIDFILE;rm $NAMEFILE"
-    printf "\033[91mINTERRUPTED!\033[0m"
+    printf "\033[91mINTERRUPTED!\033[0m\n"
   fi
 }
 
