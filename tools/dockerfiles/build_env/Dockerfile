@@ -76,21 +76,21 @@ RUN pip2.7 install --upgrade pip                                            && \
 # https://bugs.launchpad.net/ubuntu/+source/libc++/+bug/1725858
 RUN ln -s /usr/include/locale.h /usr/include/xlocale.h
 
-RUN useradd -ms /bin/bash illuminate
-RUN echo 'illuminate:illuminate' | chpasswd
+RUN useradd -ms /bin/bash romela
+# RUN echo 'romela:romela' | chpasswd
 RUN echo "%sudo  ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
-RUN usermod -aG sudo illuminate
+RUN usermod -aG sudo romela
 
 # User env setup. ##############################################################
 RUN mkdir /external_libs
 
 RUN apt-get update && apt-get install -y openssh-client openssh-server
 
-USER illuminate
-RUN mkdir -p /home/illuminate/code_env
-ENV WORKSPACE /home/illuminate/code_env WORKDIR /home/illuminate/code_env
+USER romela
+RUN mkdir -p /home/romela/code_env
+ENV WORKSPACE /home/romela/code_env WORKDIR /home/romela/code_env
 
-WORKDIR /home/illuminate
+WORKDIR /home/romela
 
 # Use a stable version of bazel. ###############################################
 WORKDIR /tmp
@@ -99,15 +99,15 @@ RUN curl -L https://github.com/bazelbuild/bazel/releases/download/0.22.0/bazel_0
 RUN apt-get install -y bash-completion
 RUN dpkg -i bazel_0.22.0-linux-x86_64.deb
 
-# ROS dependencies.
+# ROS installation. ############################################################
 RUN sh -c 'echo "deb http://packages.ros.org/ros/ubuntu stretch main" > /etc/apt/sources.list.d/ros-latest.list'
 RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-key 421C365BD9FF1F717815A3895523BAEEB01FA116
 RUN apt-get update && apt-get install -y ros-melodic-ros-base ros-melodic-mavros
-
-RUN printf "source /opt/ros/melodic/setup.bash" > /home/illuminate/.bashrc
+RUN printf "source /opt/ros/melodic/setup.bash" > /home/romela/.bashrc
+ENV ROS_MASTER_URI http://0.0.0.0:11311
 
 # Install python requirements. #################################################
-USER illuminate
+USER romela
 RUN pip3.7 install --user future
 
 RUN pip3.7 install --user                                                      \
@@ -129,15 +129,6 @@ RUN pip3.7 install --user                                                      \
   eventlet==0.23.0                                                             \
   zmq==0.0.0
 
-RUN ssh-keygen -t rsa -N '' -f ~/.ssh/id_rsa
-
 USER root
-
-WORKDIR /home/illuminate/code_env
-
-ENV ROS_MASTER_URI http://0.0.0.0:11311
-
-EXPOSE 8085/udp
-EXPOSE 8086/udp
-EXPOSE 8090/udp
-EXPOSE 8091/udp
+WORKDIR /home/romela/code_env
+COPY htoprc /home/romela/.config/htop/htoprc

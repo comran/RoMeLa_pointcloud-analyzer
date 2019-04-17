@@ -56,7 +56,6 @@ done
 
 if [ "$INSTALL_REQUIRED" == "false" ]
 then
-  echo "All necessary host packages are installed."
   exit 0
 fi
 
@@ -65,7 +64,8 @@ echo "Need to install$NEED_TO_INSTALL"
 sudo echo "Checking if sudo privileges work..." > /dev/null 2>&1
 if [ $? -ne 0 ]
 then
-  echo "Please run './tools/scripts/install.sh' directly to install dependencies."
+  echo "Please run './tools/scripts/install.sh install' directly to install " \
+    "dependencies, or install the required packages directly."
   exit 1
 fi
 

@@ -17,7 +17,7 @@ shutdown_functions = []
 
 processes = process_manager.ProcessManager()
 
-WELCOME_TEXT = '\033[96mIlluminate\033[0m'
+WELCOME_TEXT = 'RoMeLa Point Cloud Analyzer'
 
 
 # Script locations.
@@ -26,7 +26,6 @@ DOCKER_EXEC_SCRIPT      = "./tools/scripts/build_env/exec.sh "
 DOCKER_EXEC_KILL_SCRIPT = "./tools/scripts/build_env/exec_kill.sh "
 LINT_CHECK_SCRIPT = "./tools/scripts/lint/check_format.sh"
 LINT_FORMAT_SCRIPT = "./tools/scripts/lint/format.sh"
-NUKE_SCRIPT = "./tools/scripts/nuke.sh"
 DEPLOY_SCRIPT = "./tools/scripts/build_env/deploy.sh "
 
 # Command chains.
@@ -104,7 +103,7 @@ def signal_received(signal, frame):
     sys.exit(0)
 
 
-def kill_processes_in_illuminate_build_env_container():
+def kill_processes_in_build_env_container():
     if processes.spawn_process_wait_for_code(DOCKER_EXEC_KILL_SCRIPT) == 0:
         return "Killed all spawned processes in docker image.\n"
     return ""
@@ -121,8 +120,8 @@ def kill_docker_container(name):
 
 
 def kill_build_env():
-    if kill_docker_container("illuminate_build_env") == 0:
-        return "Killed ground docker container\n"
+    if kill_docker_container("romela_build_env") == 0:
+        return "Killed docker container\n"
     return ""
 
 
@@ -141,6 +140,47 @@ def run_cmd_exit_failure(cmd):
         print_update(status, "FAILURE")
 
         sys.exit(1)
+
+
+################################################################### Docker tools
+def run_docker_start(args=None, show_complete=True):
+    run_env(show_complete=False)
+
+    if show_complete:
+        print_update("Docker container started successfully", \
+                msg_type="SUCCESS")
+
+
+def run_docker_rebuild(args=None, show_complete=True):
+    print_update("Rebuilding docker environment.")
+    run_docker_kill(False)
+    run_env(show_complete=False, rebuild=True)
+
+    if show_complete:
+        print_update("Docker container started successfully", \
+                msg_type="SUCCESS")
+
+
+def run_docker_kill(args=None, show_complete=True):
+    result = kill_build_env()
+
+    if show_complete:
+        if result == "":
+            print_update("Docker container didn't exist in the first place", \
+                msg_type="FAILURE")
+        else:
+            print_update("Docker container killed successfully", \
+                    msg_type="SUCCESS")
+
+
+def run_docker_shell(args):
+    # Make sure the controls docker image is running first.
+    run_docker_start(None, show_complete=False)
+
+    # Run interactive command line
+    print_update("Starting shell tunnel to docker container")
+    processes.run_command("./tools/scripts/build_env/exec_interactive.sh " \
+        "/bin/bash")
 
 
 def run_install(args=None):
@@ -163,67 +203,30 @@ def run_travis(args):
         "./bazel-out/k8-fastbuild/bin/src/controls/loops/flight_loop_lib_test")
 
 
-def run_display_build(args=None, show_complete=True):
-    shutdown_functions.append(kill_processes_in_illuminate_build_env_container)
-
-    print_update("Going to build the code...")
+def run_build(args=None, show_complete=True):
+    shutdown_functions.append(kill_processes_in_build_env_container)
 
     run_build_env_docker_start(None, show_complete=False)
 
-    # Execute the build commands in the running docker image.
-    print_update("Downloading the dependencies...")
-
-    print_update("Building display for AMD64...")
-    run_cmd_exit_failure(DOCKER_EXEC_SCRIPT + BAZEL_BUILD + " //src/display:display")
-
-    print_update("Building display for raspi...")
-    run_cmd_exit_failure(DOCKER_EXEC_SCRIPT + BAZEL_BUILD + " --cpu=raspi //src/display:display")
-
-    print_update("Building lib directory...")
-    run_cmd_exit_failure(DOCKER_EXEC_SCRIPT + BAZEL_BUILD + " //lib/...")
+    print_update("Building code for AMD64...")
+    run_cmd_exit_failure(DOCKER_EXEC_SCRIPT + BAZEL_BUILD + \
+            " //src/... //lib/...")
 
     if show_complete:
-        print_update("\n\nBuild successful :^)", \
-                msg_type="SUCCESS")
+        print_update("Build successful :^)", msg_type="SUCCESS")
 
 
-def run_display_run(args=None, show_complete=True):
-    print_update("Building display for AMD64...")
-    run_cmd_exit_failure(DOCKER_EXEC_SCRIPT + BAZEL_BUILD + " //src/display:display")
+def run_run(args=None, show_complete=True):
+    run_build(show_complete=False)
 
-    processes.spawn_process("./tools/cache/bazel/execroot/com_illuminate/bazel-out/k8-fastbuild/bin/src/display/display")
+    # processes.spawn_process("./tools/cache/bazel/execroot/com_romela/" \
+    #         "bazel-out/k8-fastbuild/bin/src/display/display")
+
     processes.wait_for_complete()
-
-
-def run_display_deploy(args=None):
-    run_display_build(show_complete=False)
-
-    print_update("Deploying to raspi...")
-    run_cmd_exit_failure(DOCKER_EXEC_SCRIPT + DEPLOY_SCRIPT \
-            + "src/display/display")
-
-
-def run_editor_mapping(args=None, show_complete=True):
-    run_cmd_exit_failure("rm -rf tools/cache/editor")
-    run_cmd_exit_failure("mkdir -p tools/cache/editor")
-    run_cmd_exit_failure("cp " + args.csv + " tools/cache/editor/pixels.csv")
-    run_cmd_exit_failure(DOCKER_EXEC_SCRIPT + "tools/scripts/build_env/run_editor.sh mapping --csv tools/cache/editor/pixels.csv")
-
-
-def run_editor_routine(args=None, show_complete=True):
-    run_cmd_exit_failure("rm -rf tools/cache/editor")
-    run_cmd_exit_failure("mkdir -p tools/cache/editor")
-    run_cmd_exit_failure("cp " + args.video + " tools/cache/editor/video.mp4")
-    run_cmd_exit_failure(DOCKER_EXEC_SCRIPT + "tools/scripts/build_env/run_editor.sh routine --video tools/cache/editor/video.mp4 --id " + args.id + " --minx " + args.minx + " --miny " + args.miny + " --maxx " + args.maxx + " --maxy " + args.maxy)
-
-
-def run_server_run(args=None, show_complete=True):
-    run_cmd_exit_failure(DOCKER_EXEC_SCRIPT + "tools/scripts/build_env/run_server.sh")
 
 
 def run_build_env_docker_start(args=None, show_complete=True):
     print_update("Making sure all the necessary packages are installed")
-    run_install()
 
     # Start the software development docker image if it is not already
     # running.
@@ -236,8 +239,6 @@ def run_build_env_docker_start(args=None, show_complete=True):
 
 def run_build_env_docker_rebuild(args=None, show_complete=True):
     print_update("Rebuilding docker environment.")
-    run_install()
-
     run_build_env_docker_kill(False)
 
     # Start the development docker image if it is not already
@@ -245,7 +246,7 @@ def run_build_env_docker_rebuild(args=None, show_complete=True):
     run_env(show_complete=False, rebuild=True)
 
     if show_complete:
-        print_update("\n\nControls docker container started successfully", \
+        print_update("\n\Docker container started successfully", \
                 msg_type="SUCCESS")
 
 
@@ -254,7 +255,7 @@ def run_build_env_docker_kill(args=None, show_complete=True):
 
     if show_complete:
         if result == "":
-            print_update("\n\nControls docker container didn't exist in the first place", \
+            print_update("\n\nDocker docker container was not running.", \
                     msg_type="FAILURE")
         else:
             print_update("\n\nControls docker container killed successfully", \
@@ -262,16 +263,14 @@ def run_build_env_docker_kill(args=None, show_complete=True):
 
 
 def run_build_env_docker_shell(args):
-    # Make sure the controls docker image is running first.
     run_build_env_docker_start(None, show_complete=False)
-
-    # Run interactive command line
-    print_update("Starting shell tunnel to controls docker container")
-    processes.run_command("./tools/scripts/controls/exec_interactive.sh /bin/bash")
+    print_update("Create shell tunnel to docker container")
+    processes.run_command("./tools/scripts/controls/exec_interactive.sh " \
+            "/bin/bash")
 
 
 def run_env(args=None, show_complete=True, rebuild=False):
-    print_update("Starting Illuminate development environment...")
+    print_update("Starting development environment...")
 
     if rebuild:
         run_cmd_exit_failure(DOCKER_RUN_ENV_SCRIPT + " --rebuild")
@@ -279,18 +278,12 @@ def run_env(args=None, show_complete=True, rebuild=False):
         run_cmd_exit_failure(DOCKER_RUN_ENV_SCRIPT)
 
     if show_complete:
-        print_update("Illuminate development environment started " \
-                "successfully!", msg_type="SUCCESS")
+        print_update("Development environment started successfully!", \
+            msg_type="SUCCESS")
 
-
-def run_nuke(args):
-    run_cmd_exit_failure(NUKE_SCRIPT)
-
-    print_update("Successfully nuked the Illuminate development environment! " \
-            ">:)", msg_type="SUCCESS")
 
 def run_lint(args):
-    print_update("Starting Illuminate development environment...")
+    print_update("Starting development environment...")
     run_cmd_exit_failure(DOCKER_RUN_ENV_SCRIPT)
 
     print_update("Running lint...")
@@ -307,94 +300,24 @@ def run_lint(args):
         print_update("NO LINTING OPTION SPECIFIED.", "FAILURE")
 
 
-def run_docker_start(args=None, show_complete=True):
-    print_update("Making sure all the necessary packages are installed")
-    run_install()
-
-    # Start the UAS@UCLA software development docker image if it is not already
-    # running.
-    run_env(show_complete=False)
-
-    if show_complete:
-        print_update("\n\nControls docker container started successfully", \
-                msg_type="SUCCESS")
-
-
-def run_docker_rebuild(args=None, show_complete=True):
-    print_update("Rebuilding docker environment.")
-    run_install()
-
-    run_docker_kill(False)
-
-    # Start the UAS@UCLA software development docker image if it is not already
-    # running.
-    run_env(show_complete=False, rebuild=True)
-
-    if show_complete:
-        print_update("\n\nControls docker container started successfully", \
-                msg_type="SUCCESS")
-
-
-def run_docker_kill(args=None, show_complete=True):
-    result = kill_build_env()
-
-    if show_complete:
-        if result == "":
-            print_update("\n\nControls docker container didn't exist in the first place", \
-                    msg_type="FAILURE")
-        else:
-            print_update("\n\nControls docker container killed successfully", \
-                    msg_type="SUCCESS")
-
-
-def run_docker_shell(args):
-    # Make sure the controls docker image is running first.
-    run_docker_start(None, show_complete=False)
-
-    # Run interactive command line
-    print_update("Starting shell tunnel to docker container")
-    processes.run_command("./tools/scripts/build_env/exec_interactive.sh /bin/bash")
-
-
-def run_help(args):
-    print("./illuminate")
+def run_vscode(args):
+    run_cmd_exit_failure("code ./vscode.code-workspace")
+    print_update("Started vscode!", msg_type="SUCCESS")
 
 
 if __name__ == '__main__':
     signal.signal(signal.SIGINT, signal_received)
 
-    print(WELCOME_TEXT)
+    print_update(WELCOME_TEXT, msg_type="STATUS_LIGHT")
+    run_install()
 
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers()
 
-    display_parser = subparsers.add_parser('display')
-    display_subparser = display_parser.add_subparsers()
-    display_build_parser = display_subparser.add_parser('build')
-    display_build_parser.set_defaults(func=run_display_build)
-    display_run_parser = display_subparser.add_parser('run')
-    display_run_parser.set_defaults(func=run_display_run)
-    display_deploy_parser = display_subparser.add_parser('deploy')
-    display_deploy_parser.set_defaults(func=run_display_deploy)
-
-    editor_parser = subparsers.add_parser('editor')
-    editor_subparser = editor_parser.add_subparsers()
-    editor_run_mapping_parser = editor_subparser.add_parser('mapping')
-    editor_run_mapping_parser.add_argument('--csv', action='store', required=True)
-    editor_run_mapping_parser.set_defaults(func=run_editor_mapping)
-    editor_run_routine_parser = editor_subparser.add_parser('routine')
-    editor_run_routine_parser.add_argument('--video', action='store', required=True)
-    editor_run_routine_parser.add_argument('--id', action='store', required=True)
-    editor_run_routine_parser.add_argument('--minx', action='store', required=True)
-    editor_run_routine_parser.add_argument('--miny', action='store', required=True)
-    editor_run_routine_parser.add_argument('--maxx', action='store', required=True)
-    editor_run_routine_parser.add_argument('--maxy', action='store', required=True)
-    editor_run_routine_parser.set_defaults(func=run_editor_routine)
-
-    server_parser = subparsers.add_parser('server')
-    server_subparser = server_parser.add_subparsers()
-    server_run_parser = server_subparser.add_parser('run')
-    server_run_parser.set_defaults(func=run_server_run)
+    build_parser = subparsers.add_parser('build')
+    build_parser.set_defaults(func=run_build)
+    run_parser = subparsers.add_parser('run')
+    run_parser.set_defaults(func=run_run)
 
     docker_parser = subparsers.add_parser('docker')
     docker_subparsers = docker_parser.add_subparsers()
@@ -412,11 +335,8 @@ if __name__ == '__main__':
     lint_parser.add_argument('--format', action='store_true')
     lint_parser.add_argument('--check', action='store_true')
 
-    nuke_parser = subparsers.add_parser('nuke')
-    nuke_parser.set_defaults(func=run_nuke)
-
-    help_parser = subparsers.add_parser('help')
-    help_parser.set_defaults(func=run_help)
+    vscode_parser = subparsers.add_parser('vscode')
+    vscode_parser.set_defaults(func=run_vscode)
 
     args = parser.parse_args()
     args.func(args)

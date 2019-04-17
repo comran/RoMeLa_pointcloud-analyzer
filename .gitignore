@@ -1,0 +1,11 @@
+.DS_STORE
+*.pyc
+*.swp
+/bazel-*
+/tools/build_output/
+/tools/build
+package-lock.json
+**/node_modules
+.vscode
+
+/tools/cache/

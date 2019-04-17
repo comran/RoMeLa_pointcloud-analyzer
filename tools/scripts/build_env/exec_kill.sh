@@ -2,7 +2,7 @@
 
 IMAGE=$(docker ps \
   --filter status=running \
-  --filter name=illuminate_build_env \
+  --filter name=romela_build_env \
   --format "{{.ID}}" \
   --latest)
 

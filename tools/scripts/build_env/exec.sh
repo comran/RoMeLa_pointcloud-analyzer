@@ -16,13 +16,13 @@ function interrupt_exec {
 function docker_exec {
     IMAGE=$(docker ps \
       --filter status=running \
-      --filter name=illuminate_build_env \
+      --filter name=romela_build_env \
       --format "{{.ID}}" \
       --latest)
 
     if [ -z $IMAGE ]
     then
-      echo "Could not find illuminate_build_env docker image. Exiting..."
+      echo "Could not find docker image. Exiting..."
       exit 1
     fi
 
