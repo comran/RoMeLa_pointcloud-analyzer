@@ -245,3 +245,9 @@ git_repository(
     remote = "https://github.com/uas-at-ucla/SDL2.git",
 )
 
+http_archive(
+    name='octomap',
+    build_file='third_party/octomap.BUILD',
+    urls = ['https://github.com/OctoMap/octomap/archive/v1.9.0.zip'],
+    strip_prefix='octomap-1.9.0',
+)
